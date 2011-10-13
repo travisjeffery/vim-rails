@@ -1726,8 +1726,11 @@ function! s:djump(def)
     endif
   elseif def != ''
     let ext = matchstr(def,'\.\zs.*')
-    let def = matchstr(def,'[^.]*')
+    if rails#buffer().name() !~# 'blueprint' 
+      let def = matchstr(def,'[^.]*')
+    endif
     let v:errmsg = ''
+    silent! exe "ijump ".def
     silent! exe "djump ".def
     if ext != '' && (v:errmsg == '' || v:errmsg =~ '^E387')
       let rpat = '\C^\s*\%(mail\>.*\|respond_to\)\s*\%(\<do\|{\)\s*|\zs\h\k*\ze|'
@@ -1737,6 +1740,7 @@ function! s:djump(def)
         let variable = matchstr(getline(rline),rpat)
         let success = search('\C^\s*'.variable.'\s*\.\s*\zs'.ext.'\>','',end)
         if !success
+          silent! exe "ijump ".def
           silent! exe "djump ".def
         endif
       endif
@@ -2132,6 +2136,7 @@ function! s:BufFinderCommands()
   call s:addfilecmds("controller")
   call s:addfilecmds("mailer")
   call s:addfilecmds("migration")
+  call s:addfilecmds("blueprint")
   call s:addfilecmds("observer")
   call s:addfilecmds("helper")
   call s:addfilecmds("layout")
@@ -2285,6 +2290,12 @@ function! s:migrationList(A,L,P)
     call map(migrations,'s:sub(v:val,"^[0-9]*_","")')
     return s:autocamelize(migrations,a:A)
   endif
+endfunction
+
+function! s:blueprintList(A,L,P)
+  let models = rails#app().relglob("app/models/","**/*",".rb")
+  call filter(models,'v:val !~# "_observer$"')
+  return s:completion_filter(map(copy(models),'rails#camelize(v:val)'),a:A)
 endfunction
 
 function! s:unittestList(A,L,P)
@@ -2513,6 +2524,23 @@ function! s:migrationEdit(cmd,...)
     call s:findedit(cmd,migr)
   else
     return s:error("Migration not found".(arg=='' ? '' : ': '.arg))
+  endif
+endfunction
+
+function! s:app_blueprint(model) dict
+  return 'test/blueprints.rb#'.a:model.".blueprint"
+endfunction
+
+call s:add_methods('app', ['blueprint'])
+
+function! s:blueprintEdit(cmd,...)
+  let cmd = s:findcmdfor(a:cmd)
+  let arg = a:0 ? a:1 : ''
+  let bp = arg == "." ? "test/blueprints.rb" : rails#app().blueprint(arg)
+  if bp != ''
+    call s:findedit(cmd,bp)
+  else
+    return s:error("Blueprint not found".(arg=='' ? '' : ': '.arg))
   endif
 endfunction
 
@@ -3047,6 +3075,8 @@ function! s:readable_related(...) dict abort
       return s:sub(f,'_observer\.rb$','.rb')
     elseif self.type_name('db-schema')
       return self.app().migration(1)
+    elseif self.type_name('test')
+      return rails#app().blueprint(rails#camelize(s:model()))
     endif
   endif
   if f =~ '\<config/environments/'
