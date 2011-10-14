@@ -2536,7 +2536,7 @@ call s:add_methods('app', ['blueprint'])
 function! s:blueprintEdit(cmd,...)
   let cmd = s:findcmdfor(a:cmd)
   let arg = a:0 ? a:1 : ''
-  let bp = arg == "." ? "test/blueprints.rb" : rails#app().blueprint(arg)
+  let bp = arg == "" ? rails#app().blueprint(rails#camelize(s:model(1))) : rails#app().blueprint(arg)
   if bp != ''
     call s:findedit(cmd,bp)
   else
@@ -3076,7 +3076,7 @@ function! s:readable_related(...) dict abort
     elseif self.type_name('db-schema')
       return self.app().migration(1)
     elseif self.type_name('test')
-      return rails#app().blueprint(rails#camelize(s:model()))
+      return rails#app().blueprint(rails#camelize(s:model(1)))
     endif
   endif
   if f =~ '\<config/environments/'
