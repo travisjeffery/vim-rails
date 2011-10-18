@@ -518,6 +518,10 @@ function! rails#camelize(str)
   return str
 endfunction
 
+function! rails#tableize(str)
+  return rails#pluralize(s:gsub(s:sub(fnamemodify(a:str,':r'),'.{-}<app/models/',''),'/','_'))
+endfunction
+
 function! rails#singularize(word)
   " Probably not worth it to be as comprehensive as Rails but we can
   " still hit the common cases.
@@ -2137,6 +2141,7 @@ function! s:BufFinderCommands()
   call s:addfilecmds("mailer")
   call s:addfilecmds("migration")
   call s:addfilecmds("blueprint")
+  call s:addfilecmds("schema")
   call s:addfilecmds("observer")
   call s:addfilecmds("helper")
   call s:addfilecmds("layout")
@@ -2296,6 +2301,12 @@ function! s:blueprintList(A,L,P)
   let models = rails#app().relglob("app/models/","**/*",".rb")
   call filter(models,'v:val !~# "_observer$"')
   return s:completion_filter(map(copy(models),'rails#camelize(v:val)'),a:A)
+endfunction
+
+function! s:schemaList(A,L,P)
+  let models = rails#app().relglob("app/models/","**/*",".rb")
+  call filter(models,'v:val !~# "_observer$"')
+  return s:completion_filter(map(copy(models),'rails#tableize(v:val)'),a:A)
 endfunction
 
 function! s:unittestList(A,L,P)
@@ -2532,6 +2543,23 @@ function! s:app_blueprint(model) dict
 endfunction
 
 call s:add_methods('app', ['blueprint'])
+
+function! s:app_schema(model) dict
+  return 'db/schema.rb#'.a:model
+endfunction
+
+call s:add_methods('app', ['schema'])
+
+function! s:schemaEdit(cmd,...)
+  let cmd = s:findcmdfor(a:cmd)
+  let arg = a:0 ? a:1 : ''
+  let table = arg == "" ? rails#app().schema(rails#tableize(s:model(1))) : rails#app().schema(arg)
+  if table != ''
+    call s:findedit(cmd,table)
+  else
+    return s:error("Table not found".(arg=='' ? '' : ': '.arg))
+  endif
+endfunction
 
 function! s:blueprintEdit(cmd,...)
   let cmd = s:findcmdfor(a:cmd)
@@ -3068,7 +3096,7 @@ function! s:readable_related(...) dict abort
     elseif self.type_name('model-arb')
       let table_name = matchstr(join(self.getline(1,50),"\n"),'\n\s*set_table_name\s*[:"'']\zs\w\+')
       if table_name == ''
-        let table_name = rails#pluralize(s:gsub(s:sub(fnamemodify(f,':r'),'.{-}<app/models/',''),'/','_'))
+        let table_name = rails#tableize(f)
       endif
       return self.app().migration('0#'.table_name)
     elseif self.type_name('model-aro')
