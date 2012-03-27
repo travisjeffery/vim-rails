@@ -3134,7 +3134,15 @@ function! s:readable_related(...) dict abort
   elseif f =~ '\<application\.js$'
     return "app/helpers/application_helper.rb"
   elseif self.type_name('javascript')
-    return "public/javascripts/application.js"
+    let js = ""
+    if f =~ '\<spec/javascripts/'
+      let js = "app/assets/javascripts/" . fnamemodify(f, ":t:s?_spec??")
+    elseif f =~ '\<app/assets/javascripts'
+      let js = fnamemodify(f, ":s?app/assets?spec?:s?.js$?_spec.js?")
+    else
+      let js = "public/javascripts/application.js"
+    endif
+    return js
   elseif self.type_name('db/schema')
     return self.app().migration('')
   elseif self.type_name('view')
